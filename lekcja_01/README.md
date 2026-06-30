@@ -30,9 +30,9 @@ python 01_hello.py
 
 | Plik | Warsztat | Opis |
 |------|----------|------|
-| `01_hello.py` | Warsztat 1 | Sprawdzenie środowiska — jedno wywołanie OpenAI |
-| `01_api_calls.py` | Warsztat 3 | Porównanie 7 dostawców AI (OpenAI, Anthropic, Google, xAI, DeepSeek, Mistral, Ollama) |
-| `01_chatbot.py` | Warsztat 4 | Chatbot z pamięcią konwersacji — przełączanie między modelami |
+| `01_hello.py` | Warsztat 1 | Szablon 1: Super prosty skrypt sprawdzający połączenie z AI. |
+| `01_api_calls.py` | Warsztat 3 | Szablon 2: Wywoływanie 4 różnych dostawców (OpenAI, Google, Anthropic, xAI) przez odkomentowanie. |
+| `01_chatbot.py` | Warsztat 4 | Szablon 3: Podstawowy chatbot z pamięcią w prostej pętli while. |
 | `.env.example` | — | Szablon pliku z kluczami API |
 
 ## Skąd wziąć klucze API?

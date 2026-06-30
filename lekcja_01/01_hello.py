@@ -1,57 +1,45 @@
-# -*- coding: utf-8 -*-
-"""
-Lekcja 01 — Template 01: Hello AI
-Kurs "AI Agents" — Laba IT
+# ==============================================================================
+# SZABLON 1: PIERWSZE URUCHOMIENIE (HELLO WORLD)
+# ==============================================================================
+# Ten plik to najprostszy możliwy sposób na połączenie się z AI.
+# Skopiuj ten kod, zapisz jako plik i uruchom w swoim środowisku (np. VS Code).
+# Nie ma tu nic skomplikowanego, czytamy z góry na dół!
+# ==============================================================================
 
-Cel: Sprawdzenie czy środowisko działa poprawnie.
-     Jedno proste wywołanie API OpenAI.
+# KROK 1: Importujemy potrzebne narzędzia z bibliotek, które zainstalowaliśmy.
+from dotenv import load_dotenv  # Pozwala czytać bezpiecznie hasła z pliku .env
+from openai import OpenAI       # Biblioteka do rozmowy z systemami OpenAI
 
-Instrukcja:
-1. Upewnij się, że masz plik .env z kluczem OPENAI_API_KEY
-2. Uruchom: python 01_hello.py
-3. Poproś AI coding assistant o wyjaśnienie tego kodu
-4. Zmień prompt na swój i uruchom ponownie
-"""
-
-from dotenv import load_dotenv
-from openai import OpenAI
-
-# ── Ładujemy klucze z pliku .env ──
+# KROK 2: Ładujemy ukryte hasła (klucze API) z pliku .env
+# Funkcja load_dotenv() szuka pliku .env w tym samym folderze i wczytuje zmienne.
 load_dotenv()
 
-# ── Tworzymy klienta OpenAI ──
-client = OpenAI()  # automatycznie czyta OPENAI_API_KEY z .env
+# KROK 3: Tworzymy "klienta", czyli naszego łącznika z AI.
+# Jeśli masz poprawnie zapisany OPENAI_API_KEY w pliku .env, 
+# OpenAI() samo go znajdzie. Nic nie musisz tu wpisywać.
+klient = OpenAI()
 
-# ── Wysyłamy zapytanie do modelu ──
-response = client.chat.completions.create(
-    model="gpt-5.5",
+# KROK 4: Zadajemy pytanie sztucznej inteligencji.
+print("Wysyłam pytanie do AI... (to może potrwać kilka sekund)")
+
+odpowiedz = klient.chat.completions.create(
+    model="gpt-5.5",  # Wybieramy konkretny model (np. gpt-5.5, gpt-4o, gpt-3.5-turbo)
     messages=[
-        {"role": "system", "content": "Jesteś pomocnym asystentem. Odpowiadaj po polsku."},
-        {"role": "user", "content": "Czym jest agent AI? Odpowiedz w 3 zdaniach."}
-    ],
-    temperature=0.7,
-    max_tokens=300
+        # System: to główna instrukcja (kontekst), kim ma być nasze AI.
+        {"role": "system", "content": "Jesteś bardzo miłym i pomocnym asystentem."},
+        
+        # User: to Twoje właściwe pytanie lub polecenie.
+        {"role": "user", "content": "Napisz jedno zdanie na powitanie dla początkujących programistów, którzy nie znają jeszcze Pythona."}
+    ]
 )
 
-# ── Wyświetlamy odpowiedź ──
-answer = response.choices[0].message.content
-print("=" * 60)
-print("🤖 Odpowiedź modelu GPT-5.5:")
-print("=" * 60)
-print(answer)
-print("=" * 60)
+# KROK 5: Wyciągamy sam tekst odpowiedzi z paczki, którą dostaliśmy od OpenAI
+# i drukujemy go na ekranie.
+tekst_odpowiedzi = odpowiedz.choices[0].message.content
 
-# ── Statystyki użycia tokenów ──
-usage = response.usage
-print(f"\n📊 Tokeny: {usage.prompt_tokens} (prompt) + {usage.completion_tokens} (odpowiedź) = {usage.total_tokens} (razem)")
+print("\n--- ODPOWIEDŹ AI ---")
+print(tekst_odpowiedzi)
+print("--------------------")
 
-
-# ╔══════════════════════════════════════════════════════╗
-# ║  ĆWICZENIA — zrób z pomocą AI coding assistant:     ║
-# ║                                                      ║
-# ║  1. Zmień prompt na pytanie z Twojej domeny          ║
-# ║  2. Zmień temperature na 0.0 i 1.5 — porównaj        ║
-# ║  3. Zmień max_tokens na 50 — co się stanie?          ║
-# ║  4. Celowo zepsuj kod (usuń nawias) — niech AI       ║
-# ║     coding assistant go naprawi                       ║
-# ╚══════════════════════════════════════════════════════╝
+# ĆWICZENIE DLA CIEBIE:
+# Zmień "role": "system" na: "Jesteś złośliwym i znudzonym robotem." i uruchom plik jeszcze raz!
