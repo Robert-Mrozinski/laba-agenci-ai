@@ -4,7 +4,7 @@
 
 ## O kursie
 
-Przez 12 tygodni budujesz jednego agenta AI od prostego chatbota do w pełni autonomicznego systemu wdrożonego w chmurze. Nie osobne demo co tydzień — jeden spójny projekt, który rośnie z Tobą.
+Przez 12 lekcji (2 razy w tygodniu) budujesz jednego agenta AI od prostego chatbota do w pełni autonomicznego systemu wdrożonego w chmurze. Nie osobne demo co lekcji — jeden spójny projekt, który rośnie z Tobą.
 
 **Prowadzący:** Paweł Paruzel — CEO Syntelligence, 17+ lat w IT, 7 produktów SaaS, 25 certyfikatów DeepLearning.AI
 
@@ -35,26 +35,7 @@ cd lekcja_01
 python 01_hello.py
 ```
 
-## Struktura repo
 
-```
-laba-agenci-ai/
-├── lekcja_01/          Od LLM do agenta
-├── lekcja_02/          Inżynieria promptów
-├── lekcja_03/          Narzędzia — ręce agenta
-├── lekcja_04/          Pętla rozumowania (ReAct)
-├── lekcja_05/          LangGraph — agenci jako grafy
-├── lekcja_06/          RAG — agent z bazą wiedzy
-├── lekcja_07/          Pamięć i kontekst
-├── lekcja_08/          Systemy wieloagentowe
-├── lekcja_09/          Ewaluacja i monitoring
-├── lekcja_10/          Bezpieczeństwo i zabezpieczenia
-├── lekcja_11/          Wdrożenie produkcyjne
-├── lekcja_12/          Prezentacja projektów
-├── .env.example        Szablon kluczy API
-├── .gitignore
-└── requirements.txt    Zależności Python
-```
 
 ## Wymagania
 
@@ -74,23 +55,9 @@ laba-agenci-ai/
 | xAI (Grok) | [console.x.ai](https://console.x.ai/) | Pay-as-you-go |
 | DeepSeek | [platform.deepseek.com](https://platform.deepseek.com/api_keys) | Pay-as-you-go |
 | Mistral | [console.mistral.ai](https://console.mistral.ai/api-keys) | Pay-as-you-go |
+| **OpenRouter** | [openrouter.ai](https://openrouter.ai/keys) | Pay-as-you-go (wielu dostawców w jednym kluczu!) |
 
-## Lekcje
 
-| # | Temat | Status |
-|---|-------|--------|
-| 01 | Od LLM do agenta | ✅ |
-| 02 | Inżynieria promptów | 🔜 |
-| 03 | Narzędzia — ręce agenta | 🔜 |
-| 04 | Pętla rozumowania (ReAct) | 🔜 |
-| 05 | LangGraph — agenci jako grafy | 🔜 |
-| 06 | RAG — agent z bazą wiedzy | 🔜 |
-| 07 | Pamięć i kontekst | 🔜 |
-| 08 | Systemy wieloagentowe | 🔜 |
-| 09 | Ewaluacja i monitoring | 🔜 |
-| 10 | Bezpieczeństwo i zabezpieczenia | 🔜 |
-| 11 | Wdrożenie produkcyjne | 🔜 |
-| 12 | Prezentacja projektów | 🔜 |
 
 ## Licencja
 
