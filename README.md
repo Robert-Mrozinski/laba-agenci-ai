@@ -51,6 +51,18 @@ lekcja_02/          ← Inżynieria promptów
   W2_CHAIN_OF_THOUGHT.md - Myślenie krok po kroku
   W3_FEW_SHOT.md    - Słownik AI (few-shot prompting)
   W4_FORMATOWANIE.md - Komendy /tabela /lista /email
+
+lekcja_03/          ← Narzędzia — ręce agenta
+  W1_TOOL_CALLING.md - Google Search + czytanie stron WWW
+  W2_IMAGE_GEN.md    - Generator grafik AI (Nano Banana 2 Lite)
+  W3_VISION.md       - Analiza obrazów i screenshotów (Ctrl+V)
+  W4_MULTI_TOOL.md   - Wszystkie narzędzia razem
+
+lekcja_04/          ← Pętla rozumowania (ReAct)
+  W1_REACT_LOOP.md   - Agent ReAct: Myśl → Działaj → Obserwuj
+  W2_BRIEFING.md     - Asystent podróży (prawdziwe dane)
+  W3_ERROR_HANDLING.md - Obsługa błędów i limity bezpieczeństwa
+  W4_DASHBOARD.md    - Dashboard z live data (pogoda, waluty, święta)
 ```
 
 ## Jak otworzyć terminal (konsolę)
@@ -99,3 +111,7 @@ Kiedy AI wygeneruje dla Ciebie kod projektu, musisz go "odpalić", by móc zobac
 - **Nie pisz kodu ręcznie** - opisz AI czego chcesz
 - **Eksperymentuj** - zmień prompt, dodaj coś od siebie
 - **Pytaj na czacie kursu** jeśli coś nie działa
+
+## Przydatne
+
+- [💰 Jak oszczędzać tokeny w AI Coding Assistantach](OSZCZEDZANIE_TOKENOW.md) - poradnik dla Claude Code, Codex i Antigravity
