@@ -1,4 +1,4 @@
-﻿# Warsztat 1: Zbuduj chatbota AI od zera
+# Warsztat 1: Zbuduj chatbota AI od zera
 
 > 📋 **Skopiuj i wklej do swojego AI coding assistanta:**
 > *"Przeczytaj plik W1_CHATBOT.md i zbuduj wszystko co jest opisane w sekcji Krok po kroku. Mój klucz API Google: [WKLEJ KLUCZ]"*
@@ -24,7 +24,7 @@ GOOGLE_GENERATIVE_AI_API_KEY=tutaj_wklej_swoj_klucz
 
 ### 3. API endpoint: `app/api/chat/route.ts`
 - Użyj `streamText` z Vercel AI SDK
-- Model: `gemini-3.5-flash` z `@ai-sdk/google` 
+- Model: `gemini-3.1-flash-lite` z `@ai-sdk/google` 
 - System prompt: "Jesteś pomocnym asystentem AI. Odpowiadaj po polsku, zwięźle i konkretnie."
 - Zwróć streaming response
 

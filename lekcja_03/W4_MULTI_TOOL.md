@@ -95,7 +95,7 @@ Implementacja:
 
 ```
 Pod odpowiedzią agenta:
-"Użyto 3 narzędzi | 4.2s | Model: gemini-2.5-flash"
+"Użyto 3 narzędzi | 4.2s | Model: gemini-3.1-flash-lite"
 
 Zlicz toolInvocations. Czas od wysłania do końca.
 ```

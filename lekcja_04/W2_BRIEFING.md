@@ -22,7 +22,7 @@ Jeden prompt → agent autonomicznie zbiera PRAWDZIWE dane z 4-5 źródeł → z
 ```
 Stwórz endpoint z wyspecjalizowanym system promptem dla podróży:
 
-Model: gemini-2.5-flash z useSearchGrounding: true
+Model: gemini-3.1-flash-lite z useSearchGrounding sterowanym zmienną ENABLE_SEARCH_GROUNDING (domyślnie wyłączony — patrz L03 W1)
 maxSteps: 10
 Wszystkie narzędzia z Warsztatu 1 (te same tools co w /api/react)
 

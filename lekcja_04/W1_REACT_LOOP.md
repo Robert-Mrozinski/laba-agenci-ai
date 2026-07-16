@@ -103,7 +103,7 @@ Zwróć: tablica [{ title, content, createdAt }]
 ```
 Stwórz nowy endpoint: app/api/react/route.ts
 
-Model: gemini-2.5-flash z useSearchGrounding: true
+Model: gemini-3.1-flash-lite z useSearchGrounding sterowanym zmienną ENABLE_SEARCH_GROUNDING (domyślnie wyłączony — patrz L03 W1)
 maxSteps: 8 (pozwala na wiele iteracji narzędzi)
 
 Podłącz WSZYSTKIE narzędzia — z L3 + nowe 8:

@@ -69,7 +69,7 @@ Gdy request zawiera obraz (pole image w body):
    ]
 
 2. Gemini automatycznie widzi i analizuje obraz.
-   Nie trzeba specjalnego modelu - gemini-2.5-flash 
+   Nie trzeba specjalnego modelu - gemini-3.1-flash-lite 
    obsługuje obrazy natywnie.
 ```
 

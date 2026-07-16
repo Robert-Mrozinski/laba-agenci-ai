@@ -1,4 +1,4 @@
-﻿# Warsztat 1: Profesjonalna persona - lepszy niż ChatGPT
+# Warsztat 1: Profesjonalna persona - lepszy niż ChatGPT
 
 > 📋 **Skopiuj i wklej do AI assistanta:**
 > *"Przeczytaj plik W1_PERSONA_PRO.md i przeprojektuj mojego agenta na profesjonalnego eksperta z przełącznikiem modeli"*
@@ -60,7 +60,7 @@ W pliku `app/page.tsx`:
 
 W API (`app/api/chat/route.ts`):
 - Dodaj obsługę dwóch modeli Google (ten sam klucz API):
-  - `gemini-3.5-flash` - szybki, do codziennych pytań
+  - `gemini-3.1-flash-lite` - szybki, do codziennych pytań
   - `gemini-3.1-pro-preview` - zaawansowany, do złożonych analiz
 - Endpoint przyjmuje parametr `model` z body requestu (domyślnie "flash")
 

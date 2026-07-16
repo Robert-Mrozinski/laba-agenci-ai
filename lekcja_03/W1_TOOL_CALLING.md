@@ -13,20 +13,29 @@ W Lekcji 1 dodaliśmy agentowi kalkulator i zegar. Teraz idziemy dalej — agent
 
 ### 1. Włącz Google Search w modelu Gemini
 
-Gemini ma wbudowane wyszukiwanie Google — nie potrzebujesz dodatkowego API. Ten sam darmowy klucz z AI Studio.
+Gemini ma wbudowane wyszukiwanie Google — nie potrzebujesz dodatkowego API. Ten sam klucz z AI Studio.
+
+> ⚠️ **UWAGA O KOSZTACH:** Search Grounding to płatna funkcja ($14/1000 wyszukiwań, 5000/miesiąc darmowych). Dlatego jest **domyślnie wyłączona** i kontrolowana zmienną środowiskową. Żeby ją włączyć, dodaj do `.env.local`: `ENABLE_SEARCH_GROUNDING=true`. Nie zostawiaj jej włączonej na stałe — inni uczestnicy kursu mają wtedy ograniczony dostęp do modeli.
 
 ```
 W pliku app/api/chat/route.ts:
 
-Zmień konfigurację modelu Google — włącz Google Search grounding.
+Zmień konfigurację modelu Google — włącz Google Search grounding
+przez zmienną środowiskową (domyślnie wyłączone).
 
 W @ai-sdk/google użyj opcji:
-  google('gemini-2.5-flash', {
-    useSearchGrounding: true
+  google('gemini-3.1-flash-lite', {
+    useSearchGrounding: process.env.ENABLE_SEARCH_GROUNDING === 'true'
   })
 
+Na górze pliku (po importach) dodaj ostrzeżenie:
+  if (process.env.ENABLE_SEARCH_GROUNDING === 'true') {
+    console.warn('⚠️ Search Grounding WŁĄCZONY — to jest płatna funkcja. Wyłącz po testach.');
+  }
+
 Dzięki temu model AUTOMATYCZNIE przeszukuje Google gdy potrzebuje 
-aktualnych informacji. Nie musisz definiować osobnego narzędzia — 
+aktualnych informacji (jeśli jest włączony w .env.local).
+Nie musisz definiować osobnego narzędzia — 
 Gemini sam decyduje kiedy szukać.
 
 WAŻNE: To nie jest mock! Agent naprawdę szuka w Google 
