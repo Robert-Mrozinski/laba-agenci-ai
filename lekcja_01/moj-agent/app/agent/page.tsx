@@ -64,6 +64,7 @@ type StoredMessage = {
 };
 
 type UserProfile = {
+  display_name: string | null;
   id: string;
   name: string | null;
   preferences: Record<string, string> | null;
@@ -163,7 +164,11 @@ function storedMessageToUiMessage(message: StoredMessage): UIMessage {
 
 function readSavedName(parts: ToolPart[]) {
   const saveNamePart = toolParts(parts)
-    .filter((part) => part.type === 'tool-saveUserName')
+    .filter(
+      (part) =>
+        part.type === 'tool-saveUserName' ||
+        part.type === 'tool-updateUserName',
+    )
     .find(
       (part) =>
         part.state === 'output-available' &&
@@ -178,6 +183,10 @@ function readSavedName(parts: ToolPart[]) {
   return saveNamePart
     ? ((saveNamePart.output as { name: string }).name.trim() || null)
     : null;
+}
+
+function profileDisplayName(profile: UserProfile | null) {
+  return profile?.display_name?.trim() || profile?.name?.trim() || '';
 }
 
 function AgentContent() {
@@ -206,7 +215,7 @@ function AgentContent() {
     useChat();
   const isLoading = status === 'submitted' || status === 'streaming';
   const isInitializing = historyLoading || profileLoading;
-  const userName = userProfile?.name?.trim() || '';
+  const userName = profileDisplayName(userProfile);
   const errorMessage = error?.message
     ? error.message.replace(/<[^>]*>/g, '').slice(0, 240)
     : null;
@@ -233,7 +242,7 @@ function AgentContent() {
 
       const { data: existingProfile, error: selectError } = await supabase
         .from('user_profiles')
-        .select('id, name, preferences')
+        .select('id, display_name, name, preferences')
         .eq('id', authenticatedUserId)
         .maybeSingle();
 
@@ -258,11 +267,12 @@ function AgentContent() {
       const { data: createdProfile, error: insertError } = await supabase
         .from('user_profiles')
         .insert({
+          display_name: null,
           id: authenticatedUserId,
           name: null,
           preferences: {},
         })
-        .select('id, name, preferences')
+        .select('id, display_name, name, preferences')
         .single();
 
       if (cancelled) {
@@ -380,7 +390,7 @@ function AgentContent() {
       .map((message) => readSavedName(message.parts as ToolPart[]))
       .find((name): name is string => Boolean(name));
 
-    if (!savedName || userProfile?.name === savedName) {
+    if (!savedName || profileDisplayName(userProfile) === savedName) {
       return;
     }
 
@@ -388,11 +398,12 @@ function AgentContent() {
       currentProfile
         ? {
             ...currentProfile,
+            display_name: savedName,
             name: savedName,
           }
         : currentProfile,
     );
-  }, [messages, userProfile?.name]);
+  }, [messages, userProfile]);
 
   useEffect(() => {
     if (!startedAt || isLoading) {

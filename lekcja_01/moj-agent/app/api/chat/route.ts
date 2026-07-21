@@ -35,6 +35,7 @@ if (searchGroundingEnabled) {
 }
 
 type UserProfile = {
+  display_name: string | null;
   id: string;
   name: string | null;
   preferences: Record<string, string> | null;
@@ -179,15 +180,17 @@ function profilePrompt(profile: UserProfile | null) {
     return '';
   }
 
+  const displayName = profile.display_name?.trim() || profile.name?.trim() || '';
+
   const preferences = profile.preferences
     ? Object.entries(profile.preferences)
         .map(([key, value]) => `- ${key}: ${value}`)
         .join('\n')
     : '';
 
-  if (profile.name) {
+  if (displayName) {
     return [
-      `Użytkownik ma na imię ${profile.name}.`,
+      `Użytkownik ma na imię ${displayName}.`,
       'Zwracaj się do niego po imieniu, naturalnie i bez przesady.',
       'To Twój stały użytkownik, więc bądź ciepły, personalny i pamiętaj jego kontekst.',
       preferences ? `Zapamiętane preferencje użytkownika:\n${preferences}` : '',
@@ -198,7 +201,7 @@ function profilePrompt(profile: UserProfile | null) {
 
   return [
     'To nowy użytkownik. Na początku rozmowy przywitaj się krótko i zapytaj, jak ma na imię.',
-    'Gdy użytkownik poda imię, użyj narzędzia saveUserName, żeby zapisać je w Supabase.',
+    'Gdy użytkownik poda imię, użyj narzędzia updateUserName, żeby zapisać je w Supabase.',
     'Gdy użytkownik powie o swoich preferencjach, użyj saveUserPreference.',
   ].join('\n');
 }
@@ -307,7 +310,7 @@ async function loadUserProfile(userId?: string, supabaseClient?: SupabaseClient 
 
   const { data } = await supabaseClient
     .from('user_profiles')
-    .select('id, name, preferences')
+    .select('id, display_name, name, preferences')
     .eq('id', userId)
     .maybeSingle();
 
@@ -683,11 +686,60 @@ export async function POST(req: Request) {
     };
   }
 
+  const updateUserName = async ({ name }: { name: string }) => {
+    const cleanName = name.trim().slice(0, 80);
+
+    if (!authenticatedSupabase || !authenticatedUserId) {
+      return {
+        error:
+          'Nie mogę zapisać imienia, bo Supabase albo user_id nie są skonfigurowane.',
+      };
+    }
+
+    if (!cleanName) {
+      return { error: 'Imię jest puste.' };
+    }
+
+    const { error } = await authenticatedSupabase
+      .from('user_profiles')
+      .update({
+        display_name: cleanName,
+        name: cleanName,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', authenticatedUserId);
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    return {
+      name: cleanName,
+      saved: true,
+    };
+  };
+
   const result = streamText({
     model: google(models[selectedModel]),
     system: systemPrompt,
     messages: modelMessages,
     tools: {
+      updateUserName: tool({
+        description:
+          'Aktualizuje imię użytkownika w Supabase. Użyj, gdy użytkownik poda swoje imię.',
+        inputSchema: jsonSchema<{ name: string }>({
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              description: 'Imię użytkownika, np. Paweł, Anna, Robert.',
+            },
+          },
+          required: ['name'],
+          additionalProperties: false,
+        }),
+        execute: updateUserName,
+      }),
       saveUserName: tool({
         description:
           'Zapisuje imię użytkownika w Supabase. Użyj, gdy użytkownik poda swoje imię.',
@@ -702,36 +754,7 @@ export async function POST(req: Request) {
           required: ['name'],
           additionalProperties: false,
         }),
-        execute: async ({ name }) => {
-          const cleanName = name.trim().slice(0, 80);
-
-          if (!authenticatedSupabase || !authenticatedUserId) {
-            return {
-              error:
-                'Nie mogę zapisać imienia, bo Supabase albo user_id nie są skonfigurowane.',
-            };
-          }
-
-          if (!cleanName) {
-            return { error: 'Imię jest puste.' };
-          }
-
-          const { error } = await authenticatedSupabase
-            .from('user_profiles')
-            .update({
-              name: cleanName,
-            })
-            .eq('id', authenticatedUserId);
-
-          if (error) {
-            return { error: error.message };
-          }
-
-          return {
-            name: cleanName,
-            saved: true,
-          };
-        },
+        execute: updateUserName,
       }),
       saveUserPreference: tool({
         description:
