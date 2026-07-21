@@ -10,6 +10,7 @@ import {
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { searchKnowledgeBase, shouldSearchKnowledge } from '../../../lib/knowledge';
+import { createSupabaseWithToken, supabase } from '../../../lib/supabase';
 import { formatAiError } from '../errorMessages';
 
 const notesPath = path.join(process.cwd(), 'data', 'react-notes.json');
@@ -191,7 +192,20 @@ async function writeNotes(
 }
 
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const { accessToken, messages }: { accessToken?: string; messages: UIMessage[] } =
+    await req.json();
+  const {
+    data: { user },
+  } =
+    supabase && accessToken
+      ? await supabase.auth.getUser(accessToken)
+      : { data: { user: null } };
+
+  if (!user) {
+    return new Response('Musisz się zalogować.', { status: 401 });
+  }
+
+  const authenticatedSupabase = createSupabaseWithToken(accessToken!);
   const modelMessages = await convertToModelMessages(messages);
   const lastMessage = modelMessages.at(-1);
   const lastUserText =
@@ -278,7 +292,7 @@ export async function POST(req: Request) {
         }),
         execute: async ({ query }) => {
           try {
-            return await searchKnowledgeBase(query);
+            return await searchKnowledgeBase(query, user.id, authenticatedSupabase);
           } catch (error) {
             return {
               results: [],

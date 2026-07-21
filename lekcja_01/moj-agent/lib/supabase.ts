@@ -8,3 +8,17 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl!, supabaseAnonKey!)
   : null;
+
+export function createSupabaseWithToken(accessToken: string) {
+  if (!isSupabaseConfigured) {
+    return null;
+  }
+
+  return createClient(supabaseUrl!, supabaseAnonKey!, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+}

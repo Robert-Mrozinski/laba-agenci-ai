@@ -4,6 +4,7 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { DiagnosticsPanel } from '../components/DiagnosticsPanel';
+import { useAuth } from '../components/AuthProvider';
 
 const scenarios = [
   'Planuję weekend w Krakowie. Sprawdź pogodę, znajdź ciekawe miejsca w Wikipedii, i powiedz czy są jakieś święta w ten weekend',
@@ -168,6 +169,7 @@ function SectionBody({ body }: { body: string }) {
 }
 
 export default function ReactPage() {
+  const { session } = useAuth();
   const [input, setInput] = useState('');
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [durations, setDurations] = useState<Record<string, number>>({});
@@ -241,7 +243,10 @@ export default function ReactPage() {
     setInput('');
     setStartedAt(Date.now());
     clearError();
-    await sendMessage({ text: trimmedText });
+    await sendMessage(
+      { text: trimmedText },
+      { body: { accessToken: session?.access_token } },
+    );
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getRequestUser } from '../../../lib/auth';
 import { splitIntoChunks } from '../../../lib/chunking';
 import { createEmbedding } from '../../../lib/embeddings';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabase';
@@ -37,14 +38,25 @@ export async function GET(req: Request) {
     return NextResponse.json({ documents: [] });
   }
 
+  const {
+    error: authError,
+    supabase: userSupabase,
+    user,
+  } = await getRequestUser(req);
+
+  if (authError || !user || !userSupabase) {
+    return NextResponse.json({ error: authError }, { status: 401 });
+  }
+
   const url = new URL(req.url);
   const title = url.searchParams.get('title')?.trim();
 
   if (title) {
-    const { data, error } = await supabase
+    const { data, error } = await userSupabase
       .from('documents')
       .select('title, content, metadata, created_at')
       .eq('title', title)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -54,9 +66,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ chunks: data ?? [] });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await userSupabase
     .from('documents')
     .select('title, content, created_at')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -113,6 +126,22 @@ export async function POST(req: Request) {
           return;
         }
 
+        const {
+          error: authError,
+          supabase: userSupabase,
+          user,
+        } = await getRequestUser(req);
+
+        if (authError || !user || !userSupabase) {
+          controller.enqueue(
+            send({
+              type: 'error',
+              message: authError ?? 'Musisz się zalogować.',
+            }),
+          );
+          return;
+        }
+
         const { title, content }: { title?: string; content?: string } = await req.json();
         const trimmedTitle = title?.trim();
         const trimmedContent = content?.trim();
@@ -140,10 +169,11 @@ export async function POST(req: Request) {
           return;
         }
 
-        const { error: deleteExistingError } = await supabase
+        const { error: deleteExistingError } = await userSupabase
           .from('documents')
           .delete()
-          .eq('title', trimmedTitle);
+          .eq('title', trimmedTitle)
+          .eq('user_id', user.id);
 
         if (deleteExistingError) {
           throw new Error(deleteExistingError.message);
@@ -169,15 +199,17 @@ export async function POST(req: Request) {
           );
 
           const embedding = await createEmbedding(chunk);
-          const { error } = await supabase.from('documents').insert({
+          const { error } = await userSupabase.from('documents').insert({
             title: trimmedTitle,
             content: chunk,
             embedding,
+            user_id: user.id,
             metadata: {
               source: trimmedTitle,
               chunk_index: index,
               total_chunks: chunks.length,
               added_at: addedAt,
+              user_id: user.id,
             },
           });
 
@@ -226,6 +258,16 @@ export async function DELETE(req: Request) {
       );
     }
 
+    const {
+      error: authError,
+      supabase: userSupabase,
+      user,
+    } = await getRequestUser(req);
+
+    if (authError || !user || !userSupabase) {
+      return NextResponse.json({ error: authError }, { status: 401 });
+    }
+
     const { title }: { title?: string } = await req.json();
     const trimmedTitle = title?.trim();
 
@@ -233,7 +275,11 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Podaj tytuł dokumentu do usunięcia.' }, { status: 400 });
     }
 
-    const { error } = await supabase.from('documents').delete().eq('title', trimmedTitle);
+    const { error } = await userSupabase
+      .from('documents')
+      .delete()
+      .eq('title', trimmedTitle)
+      .eq('user_id', user.id);
 
     if (error) {
       throw new Error(error.message);

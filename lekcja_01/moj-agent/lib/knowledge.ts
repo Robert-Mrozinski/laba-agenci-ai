@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createEmbedding } from './embeddings';
 import { supabase } from './supabase';
 
@@ -42,10 +43,14 @@ export function shouldSearchKnowledge(text: string) {
   return knowledgeKeywords.some((keyword) => normalizedText.includes(keyword));
 }
 
-export async function searchKnowledgeBase(query: string) {
+export async function searchKnowledgeBase(
+  query: string,
+  userId?: string,
+  supabaseClient: SupabaseClient | null = supabase,
+) {
   const cleanQuery = query.trim().slice(0, 500);
 
-  if (!supabase) {
+  if (!supabaseClient) {
     return {
       results: [] as KnowledgeSearchResult[],
       source_documents: [] as string[],
@@ -65,7 +70,7 @@ export async function searchKnowledgeBase(query: string) {
   }
 
   const embedding = await createEmbedding(cleanQuery);
-  const { data, error } = await supabase.rpc('match_documents', {
+  const { data, error } = await supabaseClient.rpc('match_documents', {
     query_embedding: embedding,
     match_count: 5,
   });
@@ -88,9 +93,10 @@ export async function searchKnowledgeBase(query: string) {
       similarity: Number(item.similarity?.toFixed(3) ?? 0),
     }))
     .filter((item) => item.content.trim())
+    .filter((item) => !userId || item.metadata.user_id === userId)
     .filter((item) => hasLexicalMatch(cleanQuery, item))
     .slice(0, 3);
-  const results = await hydrateAddedAt(rawResults);
+  const results = await hydrateAddedAt(rawResults, userId, supabaseClient);
   const sourceDocuments = Array.from(new Set(results.map((result) => result.title)));
 
   if (results.length === 0) {
@@ -280,9 +286,11 @@ function metadataString(metadata: Record<string, unknown> | null | undefined, ke
   return typeof value === 'string' ? value : null;
 }
 
-async function hydrateAddedAt(results: KnowledgeSearchResult[]) {
-  const supabaseClient = supabase;
-
+async function hydrateAddedAt(
+  results: KnowledgeSearchResult[],
+  userId?: string,
+  supabaseClient: SupabaseClient | null = supabase,
+) {
   if (!supabaseClient || results.length === 0) {
     return results;
   }
@@ -293,12 +301,17 @@ async function hydrateAddedAt(results: KnowledgeSearchResult[]) {
         return result;
       }
 
-      const { data } = await supabaseClient
+      let query = supabaseClient
         .from('documents')
         .select('created_at')
         .eq('title', result.title)
-        .eq('content', result.content)
-        .maybeSingle();
+        .eq('content', result.content);
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data } = await query.maybeSingle();
 
       return {
         ...result,

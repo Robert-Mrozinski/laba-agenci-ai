@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from './AuthProvider';
 
 const navItems = [
   { href: '/', icon: '🏠', label: 'Dashboard' },
@@ -24,7 +26,20 @@ const navItems = [
 
 export function Navigation() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { session } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+
+  if (pathname === '/login') {
+    return null;
+  }
+
+  async function signOut() {
+    await supabase?.auth.signOut();
+    setIsOpen(false);
+    router.replace('/login');
+    router.refresh();
+  }
 
   return (
     <>
@@ -57,6 +72,12 @@ export function Navigation() {
             </Link>
           );
         })}
+        <div className="sidebar-auth">
+          {session?.user.email ? <span>{session.user.email}</span> : null}
+          <button onClick={signOut} type="button">
+            Wyloguj
+          </button>
+        </div>
       </nav>
     </>
   );

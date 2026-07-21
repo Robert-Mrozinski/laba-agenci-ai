@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { getAuthHeaders } from '../../lib/authHeaders';
 
 type SavedDocument = {
   title: string;
@@ -121,7 +122,9 @@ export default function UploadPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/upload-knowledge');
+      const response = await fetch('/api/upload-knowledge', {
+        headers: await getAuthHeaders(),
+      });
       const data = (await response.json()) as {
         documents?: SavedDocument[];
         error?: string;
@@ -158,7 +161,10 @@ export default function UploadPage() {
     try {
       const response = await fetch('/api/upload-knowledge', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await getAuthHeaders()),
+        },
         body: JSON.stringify({ title, content }),
       });
 
@@ -247,7 +253,10 @@ export default function UploadPage() {
     try {
       const response = await fetch('/api/upload-knowledge', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await getAuthHeaders()),
+        },
         body: JSON.stringify({ title: documentTitle }),
       });
       const data = (await response.json()) as { error?: string };
@@ -288,7 +297,10 @@ export default function UploadPage() {
     try {
       const response = await fetch('/api/search-knowledge', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await getAuthHeaders()),
+        },
         body: JSON.stringify({ query }),
       });
       const data = (await response.json()) as {
@@ -329,6 +341,7 @@ export default function UploadPage() {
     try {
       const response = await fetch(
         `/api/upload-knowledge?title=${encodeURIComponent(documentTitle)}`,
+        { headers: await getAuthHeaders() },
       );
       const data = (await response.json()) as {
         chunks?: KnowledgeChunk[];

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { isSupabaseConfigured, supabase } from '../../lib/supabase';
+import { useAuth } from '../components/AuthProvider';
 
 type Conversation = {
   created_at?: string | null;
@@ -78,6 +79,7 @@ function preview(text: string) {
 
 export default function HistoryPage() {
   const router = useRouter();
+  const { session } = useAuth();
   const [conversations, setConversations] = useState<ConversationCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -85,10 +87,10 @@ export default function HistoryPage() {
   const [query, setQuery] = useState('');
 
   async function loadConversations() {
-    if (!supabase) {
+    if (!supabase || !session) {
       setError(
         isSupabaseConfigured
-          ? 'Nie udało się połączyć z Supabase.'
+          ? 'Musisz się zalogować, żeby zobaczyć historię.'
           : 'Brakuje zmiennych Supabase w .env.local.',
       );
       setLoading(false);
@@ -102,6 +104,7 @@ export default function HistoryPage() {
       await supabase
         .from('conversations')
         .select('id, title, created_at, updated_at')
+        .eq('user_id', session.user.id)
         .order('updated_at', { ascending: false });
 
     if (conversationsError) {
@@ -156,7 +159,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     void loadConversations();
-  }, []);
+  }, [session]);
 
   const filteredConversations = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -174,7 +177,15 @@ export default function HistoryPage() {
   }, [conversations, query]);
 
   async function deleteConversation(id: string) {
-    if (!supabase) {
+    if (!supabase || !session) {
+      return;
+    }
+
+    const existingConversation = conversations.find(
+      (conversation) => conversation.id === id,
+    );
+
+    if (!existingConversation) {
       return;
     }
 
@@ -199,7 +210,8 @@ export default function HistoryPage() {
     const { error: conversationError } = await supabase
       .from('conversations')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', session.user.id);
 
     if (conversationError) {
       setError(conversationError.message);

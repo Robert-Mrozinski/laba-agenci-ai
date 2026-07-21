@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { getAuthHeaders } from '../../lib/authHeaders';
 
 type SavedDocument = {
   title: string;
@@ -43,7 +44,9 @@ export default function KnowledgePage() {
     setError('');
 
     try {
-      const response = await fetch('/api/upload-knowledge');
+      const response = await fetch('/api/upload-knowledge', {
+        headers: await getAuthHeaders(),
+      });
       const data = (await response.json()) as {
         documents?: SavedDocument[];
         error?: string;
@@ -80,7 +83,10 @@ export default function KnowledgePage() {
     try {
       const response = await fetch('/api/search-knowledge', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await getAuthHeaders()),
+        },
         body: JSON.stringify({ query }),
       });
       const data = (await response.json()) as {
@@ -121,6 +127,7 @@ export default function KnowledgePage() {
     try {
       const response = await fetch(
         `/api/upload-knowledge?title=${encodeURIComponent(documentTitle)}`,
+        { headers: await getAuthHeaders() },
       );
       const data = (await response.json()) as {
         chunks?: KnowledgeChunk[];

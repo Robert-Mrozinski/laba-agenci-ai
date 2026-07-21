@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
+import { AuthProvider } from './components/AuthProvider';
 import { Navigation } from './components/Navigation';
 import './globals.css';
 
@@ -15,8 +17,21 @@ export default function RootLayout({
   return (
     <html lang="pl">
       <body>
-        <Navigation />
-        <div className="app-content">{children}</div>
+        <Suspense
+          fallback={
+            <main className="auth-shell">
+              <section className="auth-card">
+                <h1>Costa Broker</h1>
+                <p>Ładuję aplikację...</p>
+              </section>
+            </main>
+          }
+        >
+          <AuthProvider>
+            <Navigation />
+            <div className="app-content">{children}</div>
+          </AuthProvider>
+        </Suspense>
       </body>
     </html>
   );

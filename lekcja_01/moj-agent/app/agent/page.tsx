@@ -21,6 +21,7 @@ import {
   readImageFile,
 } from '../components/imageAttachment';
 import { DiagnosticsPanel } from '../components/DiagnosticsPanel';
+import { useAuth } from '../components/AuthProvider';
 
 const tools = [
   ['🧮', 'Kalkulator'],
@@ -182,6 +183,7 @@ function readSavedName(parts: ToolPart[]) {
 function AgentContent() {
   const searchParams = useSearchParams();
   const requestedConversationId = searchParams.get('conversationId');
+  const { session } = useAuth();
   const [input, setInput] = useState('');
   const [attachedImage, setAttachedImage] = useState<AttachedImage | null>(
     null,
@@ -208,6 +210,7 @@ function AgentContent() {
   const errorMessage = error?.message
     ? error.message.replace(/<[^>]*>/g, '').slice(0, 240)
     : null;
+  const authenticatedUserId = session?.user.id ?? null;
 
   useEffect(() => {
     conversationIdRef.current = conversationId;
@@ -221,24 +224,17 @@ function AgentContent() {
     let cancelled = false;
 
     async function loadUserProfile() {
-      if (!supabase) {
+      if (!supabase || !authenticatedUserId) {
         setProfileLoading(false);
         return;
       }
 
       setProfileLoading(true);
 
-      const storedUserId = window.localStorage.getItem('user_id');
-      const currentUserId = storedUserId || crypto.randomUUID();
-
-      if (!storedUserId) {
-        window.localStorage.setItem('user_id', currentUserId);
-      }
-
       const { data: existingProfile, error: selectError } = await supabase
         .from('user_profiles')
         .select('id, name, preferences')
-        .eq('id', currentUserId)
+        .eq('id', authenticatedUserId)
         .maybeSingle();
 
       if (cancelled) {
@@ -247,13 +243,13 @@ function AgentContent() {
 
       if (selectError) {
         setHistoryError(selectError.message);
-        setUserId(currentUserId);
+        setUserId(authenticatedUserId);
         setProfileLoading(false);
         return;
       }
 
       if (existingProfile) {
-        setUserId(currentUserId);
+        setUserId(authenticatedUserId);
         setUserProfile(existingProfile as UserProfile);
         setProfileLoading(false);
         return;
@@ -262,7 +258,7 @@ function AgentContent() {
       const { data: createdProfile, error: insertError } = await supabase
         .from('user_profiles')
         .insert({
-          id: currentUserId,
+          id: authenticatedUserId,
           name: null,
           preferences: {},
         })
@@ -275,12 +271,12 @@ function AgentContent() {
 
       if (insertError) {
         setHistoryError(insertError.message);
-        setUserId(currentUserId);
+        setUserId(authenticatedUserId);
         setProfileLoading(false);
         return;
       }
 
-      setUserId(currentUserId);
+      setUserId(authenticatedUserId);
       setUserProfile(createdProfile as UserProfile);
       setProfileLoading(false);
     }
@@ -290,13 +286,13 @@ function AgentContent() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authenticatedUserId]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadLatestConversation() {
-      if (!supabase) {
+      if (!supabase || !userId) {
         setHistoryLoading(false);
 
         if (!isSupabaseConfigured) {
@@ -311,7 +307,10 @@ function AgentContent() {
       setHistoryLoading(true);
       setHistoryError('');
 
-      const conversationQuery = supabase.from('conversations').select('id');
+      const conversationQuery = supabase
+        .from('conversations')
+        .select('id')
+        .eq('user_id', userId);
       const { data: conversation, error: conversationError } =
         requestedConversationId
           ? await conversationQuery
@@ -374,7 +373,7 @@ function AgentContent() {
     return () => {
       cancelled = true;
     };
-  }, [requestedConversationId, setMessages]);
+  }, [requestedConversationId, setMessages, userId]);
 
   useEffect(() => {
     const savedName = messages
@@ -414,7 +413,7 @@ function AgentContent() {
   }, [durations, isLoading, messages, startedAt]);
 
   useEffect(() => {
-    if (!supabase || !conversationId || historyLoading) {
+    if (!supabase || !conversationId || !userId || historyLoading) {
       return;
     }
 
@@ -467,7 +466,8 @@ function AgentContent() {
       const { error: updateError } = await supabase!
         .from('conversations')
         .update({ updated_at: now })
-        .eq('id', conversationId);
+        .eq('id', conversationId)
+        .eq('user_id', userId);
 
       if (updateError) {
         setHistoryError(updateError.message);
@@ -475,12 +475,12 @@ function AgentContent() {
     }
 
     void saveMessages();
-  }, [conversationId, historyLoading, isLoading, messages]);
+  }, [conversationId, historyLoading, isLoading, messages, userId]);
 
   async function createConversation(title = 'Nowa rozmowa') {
-    if (!supabase) {
+    if (!supabase || !userId) {
       setHistoryError(
-        'Nie skonfigurowano Supabase. Dodaj NEXT_PUBLIC_SUPABASE_URL i NEXT_PUBLIC_SUPABASE_ANON_KEY w .env.local.',
+        'Nie skonfigurowano Supabase albo nie jesteś zalogowany.',
       );
       return null;
     }
@@ -488,7 +488,7 @@ function AgentContent() {
     const now = new Date().toISOString();
     const { data, error: createError } = await supabase
       .from('conversations')
-      .insert({ title, updated_at: now })
+      .insert({ title, updated_at: now, user_id: userId })
       .select('id')
       .single();
 
@@ -511,7 +511,8 @@ function AgentContent() {
             title: conversationTitle(text),
             updated_at: new Date().toISOString(),
           })
-          .eq('id', conversationIdRef.current);
+          .eq('id', conversationIdRef.current)
+          .eq('user_id', userId);
 
         if (updateError) {
           setHistoryError(updateError.message);
@@ -588,7 +589,14 @@ function AgentContent() {
     await ensureConversation(trimmedText);
     await sendMessage(
       { text: trimmedText || 'Opisz ten obraz i zaproponuj następne kroki.' },
-      { body: { image, mode: 'agent', model: 'flash', userId } },
+      {
+        body: {
+          accessToken: session?.access_token,
+          image,
+          mode: 'agent',
+          model: 'flash',
+        },
+      },
     );
   }
 

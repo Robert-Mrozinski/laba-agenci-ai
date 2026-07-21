@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabase';
+import { useAuth } from '../../components/AuthProvider';
 
 type Conversation = {
   created_at?: string | null;
@@ -44,6 +45,7 @@ function formatTime(value?: string | null) {
 export default function HistoryDetailPage() {
   const params = useParams<{ id: string }>();
   const conversationId = params.id;
+  const { session } = useAuth();
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<StoredMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,10 +55,10 @@ export default function HistoryDetailPage() {
     let cancelled = false;
 
     async function loadConversation() {
-      if (!supabase) {
+      if (!supabase || !session) {
         setError(
           isSupabaseConfigured
-            ? 'Nie udało się połączyć z Supabase.'
+            ? 'Musisz się zalogować, żeby zobaczyć rozmowę.'
             : 'Brakuje zmiennych Supabase w .env.local.',
         );
         setLoading(false);
@@ -71,6 +73,7 @@ export default function HistoryDetailPage() {
           .from('conversations')
           .select('id, title, created_at, updated_at')
           .eq('id', conversationId)
+          .eq('user_id', session.user.id)
           .maybeSingle();
 
       if (cancelled) {
@@ -121,7 +124,7 @@ export default function HistoryDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [conversationId]);
+  }, [conversationId, session]);
 
   return (
     <main className="history-shell">

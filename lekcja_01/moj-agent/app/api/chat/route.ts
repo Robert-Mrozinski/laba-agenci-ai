@@ -1,4 +1,5 @@
 import { google } from '@ai-sdk/google';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -15,7 +16,7 @@ import {
   searchKnowledgeBase,
   shouldSearchKnowledge,
 } from '../../../lib/knowledge';
-import { supabase } from '../../../lib/supabase';
+import { createSupabaseWithToken, supabase } from '../../../lib/supabase';
 import { formatAiError } from '../errorMessages';
 
 type AiModel = 'flash' | 'pro';
@@ -239,7 +240,11 @@ function addKnowledgeSearchInstruction(text: string) {
   ].join('\n\n');
 }
 
-function knowledgeSearchResponse(query: string) {
+function knowledgeSearchResponse(
+  query: string,
+  userId?: string,
+  supabaseClient?: SupabaseClient | null,
+) {
   const stream = createUIMessageStream<UIMessage>({
     execute: async ({ writer }) => {
       const textId = crypto.randomUUID();
@@ -255,7 +260,7 @@ function knowledgeSearchResponse(query: string) {
       });
 
       try {
-        const searchResult = await searchKnowledgeBase(query);
+        const searchResult = await searchKnowledgeBase(query, userId, supabaseClient);
 
         writer.write({
           type: 'tool-output-available',
@@ -295,12 +300,12 @@ function knowledgeSearchResponse(query: string) {
   return createUIMessageStreamResponse({ stream });
 }
 
-async function loadUserProfile(userId?: string) {
-  if (!supabase || !userId) {
+async function loadUserProfile(userId?: string, supabaseClient?: SupabaseClient | null) {
+  if (!supabaseClient || !userId) {
     return null;
   }
 
-  const { data } = await supabase
+  const { data } = await supabaseClient
     .from('user_profiles')
     .select('id, name, preferences')
     .eq('id', userId)
@@ -607,22 +612,35 @@ async function generateImageFromPrompt(prompt: string) {
 
 export async function POST(req: Request) {
   const {
+    accessToken,
     image,
     messages,
     model = 'flash',
     mode = 'chat',
-    userId,
   }: {
+    accessToken?: string;
     image?: string;
     messages: UIMessage[];
     mode?: ChatMode;
     model?: AiModel;
-    userId?: string;
   } =
     await req.json();
   const selectedModel: AiModel = model in models ? model : 'flash';
   const selectedMode: ChatMode = mode === 'agent' ? 'agent' : 'chat';
-  const userProfile = await loadUserProfile(userId);
+  const {
+    data: { user },
+  } =
+    supabase && accessToken
+      ? await supabase.auth.getUser(accessToken)
+      : { data: { user: null } };
+
+  if (!user) {
+    return new Response('Musisz się zalogować.', { status: 401 });
+  }
+
+  const authenticatedUserId = user.id;
+  const authenticatedSupabase = createSupabaseWithToken(accessToken!);
+  const userProfile = await loadUserProfile(authenticatedUserId, authenticatedSupabase);
   const systemPrompt = [
     selectedMode === 'agent' ? fullPowerAgentPrompt : personaPrompt,
     knowledgeBasePrompt,
@@ -639,7 +657,11 @@ export async function POST(req: Request) {
   const forceKnowledgeSearch = shouldSearchKnowledge(lastMessageText);
 
   if (forceKnowledgeSearch && !image) {
-    return knowledgeSearchResponse(lastMessageText);
+    return knowledgeSearchResponse(
+      lastMessageText,
+      authenticatedUserId,
+      authenticatedSupabase,
+    );
   }
 
   if (image && lastMessage?.role === 'user') {
@@ -683,7 +705,7 @@ export async function POST(req: Request) {
         execute: async ({ name }) => {
           const cleanName = name.trim().slice(0, 80);
 
-          if (!supabase || !userId) {
+          if (!authenticatedSupabase || !authenticatedUserId) {
             return {
               error:
                 'Nie mogę zapisać imienia, bo Supabase albo user_id nie są skonfigurowane.',
@@ -694,12 +716,12 @@ export async function POST(req: Request) {
             return { error: 'Imię jest puste.' };
           }
 
-          const { error } = await supabase
+          const { error } = await authenticatedSupabase
             .from('user_profiles')
             .update({
               name: cleanName,
             })
-            .eq('id', userId);
+            .eq('id', authenticatedUserId);
 
           if (error) {
             return { error: error.message };
@@ -731,7 +753,7 @@ export async function POST(req: Request) {
           additionalProperties: false,
         }),
         execute: async ({ key, value }) => {
-          if (!supabase || !userId) {
+          if (!authenticatedSupabase || !authenticatedUserId) {
             return {
               error:
                 'Nie mogę zapisać preferencji, bo Supabase albo user_id nie są skonfigurowane.',
@@ -755,12 +777,12 @@ export async function POST(req: Request) {
             [cleanKey]: cleanValue,
           };
 
-          const { error } = await supabase
+          const { error } = await authenticatedSupabase
             .from('user_profiles')
             .update({
               preferences,
             })
-            .eq('id', userId);
+            .eq('id', authenticatedUserId);
 
           if (error) {
             return { error: error.message };
@@ -839,7 +861,11 @@ export async function POST(req: Request) {
         }),
         execute: async ({ query }) => {
           try {
-            return await searchKnowledgeBase(query);
+            return await searchKnowledgeBase(
+              query,
+              authenticatedUserId,
+              authenticatedSupabase,
+            );
           } catch (error) {
             return {
               results: [],
