@@ -1,3 +1,5 @@
+import { supabase } from '../../../lib/supabase';
+
 function safeError(error: unknown) {
   return error instanceof Error ? error.message : 'Nieznany błąd.';
 }
@@ -215,6 +217,27 @@ async function getUpcomingHolidays(countryCode: string, year: number) {
   };
 }
 
+async function getLatestMorningBriefing() {
+  if (!supabase) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('briefings')
+    .select('id, content, date, created_at')
+    .is('user_id', null)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    return {
+      error: error.message,
+    };
+  }
+
+  return data?.[0] ?? null;
+}
+
 export async function GET(request: Request) {
   const now = new Date();
   const year = now.getFullYear();
@@ -222,15 +245,17 @@ export async function GET(request: Request) {
   const latitude = Number(searchParams.get('lat'));
   const longitude = Number(searchParams.get('lon'));
   const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
-  const [weather, rates, holidays] = await Promise.all([
+  const [weather, rates, holidays, morningBriefing] = await Promise.all([
     hasCoordinates ? getWeatherByCoordinates(latitude, longitude) : getWeather('Warszawa'),
     getExchangeRates(['EUR', 'USD']),
     getUpcomingHolidays('PL', year),
+    getLatestMorningBriefing(),
   ]);
 
   return Response.json({
     generatedAt: now.toISOString(),
     holidays,
+    morningBriefing,
     rates,
     time: {
       iso: now.toISOString(),

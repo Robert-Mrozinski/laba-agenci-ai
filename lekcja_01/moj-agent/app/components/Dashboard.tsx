@@ -13,6 +13,17 @@ type DashboardData = {
     updatedAt?: string;
     year: number;
   };
+  morningBriefing:
+    | {
+        content: string;
+        created_at: string;
+        date: string;
+        id: string;
+      }
+    | {
+        error: string;
+      }
+    | null;
   rates: Array<{
     currency: string;
     date?: string;
@@ -128,6 +139,18 @@ function SkeletonCard({ title }: { title: string }) {
   );
 }
 
+function briefingPreview(content?: string) {
+  if (!content) {
+    return 'Brak zapisanego briefingu. Otwórz /api/cron/morning, żeby wygenerować pierwszy wpis.';
+  }
+
+  return content
+    .replace(/^#+\s*/gm, '')
+    .replace(/\n{2,}/g, '\n')
+    .trim()
+    .slice(0, 520);
+}
+
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState('');
@@ -136,6 +159,14 @@ export function Dashboard() {
   const coordinatesRef = useRef<Coordinates | null>(null);
 
   const nextHoliday = data?.holidays.holidays[0];
+  const morningBriefing =
+    data?.morningBriefing && !('error' in data.morningBriefing)
+      ? data.morningBriefing
+      : null;
+  const morningBriefingError =
+    data?.morningBriefing && 'error' in data.morningBriefing
+      ? data.morningBriefing.error
+      : '';
   const weatherLocationNote =
     data?.weather.locationNote ||
     (data?.weather.locationSource === 'fallback'
@@ -325,6 +356,32 @@ export function Dashboard() {
               <p className="dashboard-muted">Następne za: {daysUntil(nextHoliday.date)} dni</p>
             ) : (
               <p className="dashboard-muted">Brak nadchodzących świąt w tym roku</p>
+            )}
+          </section>
+
+          <section className="dashboard-card briefing-dashboard-card">
+            <div className="dashboard-card-head">
+              <h2>☀️ Poranny briefing</h2>
+              <small>
+                {morningBriefing
+                  ? `Zapisany: ${formatTime(morningBriefing.created_at)}`
+                  : 'Supabase'}
+              </small>
+            </div>
+            {morningBriefingError ? (
+              <p className="dashboard-card-error">{morningBriefingError}</p>
+            ) : (
+              <>
+                <p className="dashboard-location">
+                  {morningBriefing?.date ?? 'Brak briefingu'}
+                </p>
+                <p className="dashboard-briefing-preview">
+                  {briefingPreview(morningBriefing?.content)}
+                </p>
+                <a className="dashboard-feature-link" href="/api/cron/morning">
+                  🔄 Wygeneruj briefing
+                </a>
+              </>
             )}
           </section>
 
