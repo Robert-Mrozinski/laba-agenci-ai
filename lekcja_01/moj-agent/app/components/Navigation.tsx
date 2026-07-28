@@ -10,6 +10,7 @@ const navItems = [
   { href: '/', icon: '🏠', label: 'Dashboard' },
   { href: '/agent', icon: '🤖', label: 'Agent' },
   { href: '/history', icon: '📜', label: 'Historia' },
+  { href: '/briefings', icon: '📰', label: 'Briefingi' },
   { href: '/react', icon: '🔄', label: 'ReAct' },
   { href: '/travel', icon: '✈️', label: 'Podróże' },
   { href: '/chat', icon: '💬', label: 'Chat' },

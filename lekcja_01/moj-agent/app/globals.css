@@ -2181,6 +2181,215 @@ h1 {
   color: #b42318;
 }
 
+.briefings-shell {
+  min-height: 100dvh;
+  padding: 32px;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(183, 155, 89, 0.12), transparent 34%),
+    radial-gradient(circle at 88% 4%, rgba(34, 98, 160, 0.12), transparent 32%),
+    linear-gradient(135deg, #f8fbff 0%, #eef4fb 52%, #f7f2e7 100%);
+}
+
+.briefings-panel {
+  width: min(100%, 960px);
+  margin: 0 auto;
+  padding: 26px;
+  border: 1px solid rgba(137, 151, 173, 0.26);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 24px 70px rgba(31, 41, 55, 0.12);
+  backdrop-filter: blur(18px);
+}
+
+.briefings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(137, 151, 173, 0.22);
+}
+
+.briefings-header h1 {
+  margin: 0;
+  color: #0b2b55;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  letter-spacing: 0;
+}
+
+.briefings-header p {
+  margin: 8px 0 0;
+  color: #667085;
+  line-height: 1.5;
+}
+
+.briefings-header button,
+.briefings-empty button,
+.briefing-detail-head button {
+  min-height: 42px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.briefings-header button,
+.briefings-empty button {
+  padding: 0 16px;
+  border: 1px solid #0b2b55;
+  background: #0b2b55;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.briefings-header button:disabled,
+.briefings-empty button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.briefings-error {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid #fecdca;
+  border-radius: 8px;
+  background: #fffbfa;
+  color: #b42318;
+  line-height: 1.45;
+}
+
+.briefings-list {
+  display: grid;
+  gap: 12px;
+}
+
+.briefing-card {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid rgba(137, 151, 173, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #172033;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(31, 41, 55, 0.08);
+}
+
+.briefing-card:hover {
+  border-color: #7aa2d4;
+  background: #f8fbff;
+}
+
+.briefing-card div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.briefing-card time {
+  color: #0b2b55;
+  font-weight: 900;
+}
+
+.briefing-card small {
+  color: #667085;
+  white-space: nowrap;
+}
+
+.briefing-card p {
+  margin: 0;
+  color: #344054;
+  line-height: 1.55;
+}
+
+.briefing-card span {
+  color: #0b6b4f;
+  font-weight: 800;
+}
+
+.briefing-card-loading {
+  cursor: default;
+}
+
+.briefing-card-loading span {
+  height: 18px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #e8edf5, #f8fafc, #e8edf5);
+  background-size: 220% 100%;
+  animation: skeletonShimmer 1.2s ease-in-out infinite;
+}
+
+.briefings-empty {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding: 34px;
+  border: 1px dashed rgba(11, 43, 85, 0.24);
+  border-radius: 8px;
+  background: rgba(238, 245, 255, 0.7);
+}
+
+.briefings-empty h2 {
+  margin: 0;
+  color: #0b2b55;
+}
+
+.briefings-empty p {
+  margin: 0;
+  color: #667085;
+}
+
+.briefing-detail {
+  display: grid;
+  gap: 20px;
+}
+
+.briefing-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.briefing-detail-head button {
+  padding: 0 14px;
+  border: 1px solid #c9d4e4;
+  background: #ffffff;
+  color: #0b2b55;
+}
+
+.briefing-detail-head p {
+  margin: 10px 0 0;
+  color: #667085;
+}
+
+.briefing-markdown {
+  display: grid;
+  gap: 12px;
+  color: #344054;
+  line-height: 1.65;
+}
+
+.briefing-markdown h1,
+.briefing-markdown h2,
+.briefing-markdown p,
+.briefing-markdown ul {
+  margin: 0;
+}
+
+.briefing-markdown h1,
+.briefing-markdown h2 {
+  color: #0b2b55;
+  letter-spacing: 0;
+}
+
+.briefing-markdown ul {
+  padding-left: 20px;
+}
+
 .skeleton-card span {
   height: 18px;
   display: block;
@@ -2609,6 +2818,10 @@ h1 {
     padding: 18px;
   }
 
+  .briefings-shell {
+    padding: 18px;
+  }
+
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
@@ -2716,6 +2929,27 @@ h1 {
 
   .dashboard-card-head {
     flex-direction: column;
+  }
+
+  .briefings-panel {
+    padding: 18px;
+  }
+
+  .briefings-header,
+  .briefing-detail-head,
+  .briefing-card div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .briefings-header button,
+  .briefings-empty button,
+  .briefing-detail-head button {
+    width: 100%;
+  }
+
+  .briefing-card small {
+    white-space: normal;
   }
 
   .dashboard-card dl,
