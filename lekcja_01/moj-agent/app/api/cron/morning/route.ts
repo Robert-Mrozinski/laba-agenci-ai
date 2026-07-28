@@ -46,6 +46,25 @@ function safeError(error: unknown) {
   return error instanceof Error ? error.message : 'Nieznany blad.';
 }
 
+function authorizeCronRequest(request: Request) {
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (!cronSecret) {
+    return Response.json(
+      { error: 'Brakuje CRON_SECRET w zmiennych srodowiskowych.' },
+      { status: 500 },
+    );
+  }
+
+  const authHeader = request.headers.get('authorization');
+
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  return null;
+}
+
 async function fetchJsonWithTimeout(url: string, label: string, timeoutMs = 7000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -320,7 +339,13 @@ ${newsLines || '- Brak aktualnych naglowkow z RSS.'}
 Wybierz jedna najwazniejsza rzecz na start dnia i zrob ja zanim rozproszysz sie drobiazgami.`;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const unauthorizedResponse = authorizeCronRequest(request);
+
+  if (unauthorizedResponse) {
+    return unauthorizedResponse;
+  }
+
   const now = new Date();
   const { date, displayDate, weekday } = localDateParts(now);
   const [weather, eur, usd, holidayResult, newsResult] = await Promise.all([
