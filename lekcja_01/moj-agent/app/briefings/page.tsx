@@ -140,13 +140,21 @@ export default function BriefingsPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/cron/morning', { cache: 'no-store' });
+      const {
+        data: { session },
+      } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
+      const response = await fetch('/api/cron/morning', {
+        cache: 'no-store',
+        headers: session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : undefined,
+      });
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error(
-            'Cron jest zabezpieczony CRON_SECRET. Uruchom go ręcznie w Vercel: Settings → Cron Jobs → Run.',
+            'Nie udało się autoryzować generowania. Zaloguj się ponownie albo uruchom cron ręcznie w Vercel: Settings → Cron Jobs → Run.',
           );
         }
 
