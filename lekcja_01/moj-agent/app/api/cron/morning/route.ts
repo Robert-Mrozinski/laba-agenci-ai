@@ -327,7 +327,9 @@ function buildFallbackBriefing({
     .join('\n');
   const newsLines = news
     .slice(0, 5)
-    .map((item) => `- ${item.title} (${item.source})`)
+    .map((item) =>
+      item.link ? `- [${item.title}](${item.link}) (${item.source})` : `- ${item.title} (${item.source})`,
+    )
     .join('\n');
 
   return `# Dzien dobry! Twoj briefing na ${date}
@@ -347,6 +349,54 @@ ${newsLines || '- Brak aktualnych naglowkow z RSS.'}
 
 ## Porada dnia
 Wybierz jedna najwazniejsza rzecz na start dnia i zrob ja zanim rozproszysz sie drobiazgami.`;
+}
+
+function normalizeSectionHeading(heading: string) {
+  return heading
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/^#+\s*/, '')
+    .trim()
+    .toLowerCase();
+}
+
+function replaceMarkdownSection(content: string, heading: string, body: string) {
+  const lines = content.split('\n');
+  const normalizedHeading = normalizeSectionHeading(heading);
+  const sectionStart = lines.findIndex(
+    (line) => line.trim().startsWith('## ') && normalizeSectionHeading(line) === normalizedHeading,
+  );
+
+  if (sectionStart === -1) {
+    return `${content.trim()}\n\n## ${heading}\n${body}`.trim();
+  }
+
+  let sectionEnd = sectionStart + 1;
+
+  while (sectionEnd < lines.length && !lines[sectionEnd].trim().startsWith('## ')) {
+    sectionEnd += 1;
+  }
+
+  return [
+    ...lines.slice(0, sectionStart + 1),
+    body,
+    '',
+    ...lines.slice(sectionEnd),
+  ]
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function enforceBriefingFacts(content: string, rateLines: string, newsLines: string) {
+  const verifiedRates = rateLines || '- EUR: brak danych PLN\n- USD: brak danych PLN';
+  const verifiedNews = newsLines || '- Brak aktualnych naglowkow z RSS.';
+
+  return replaceMarkdownSection(
+    replaceMarkdownSection(content, 'Kursy walut', verifiedRates),
+    'Wiadomosci',
+    verifiedNews,
+  );
 }
 
 export async function GET(request: Request) {
@@ -426,7 +476,7 @@ Pisz po polsku, konkretnie, bez wymyslania danych. Jesli czegos brakuje, napisz 
       ),
     });
 
-    const content = result.text.trim();
+    const content = enforceBriefingFacts(result.text.trim(), rateLines, newsLines);
     const db = createSupabaseForCron();
 
     if (!db) {
