@@ -366,8 +366,15 @@ export async function GET(request: Request) {
     getNews(),
   ]);
   const rates = [eur, usd];
+  const rateLines = rates
+    .map((rate) => `- ${rate.currency}: ${rate.rate?.toFixed(4) ?? 'brak danych'} PLN`)
+    .join('\n');
   const holiday = holidayResult.holiday;
   const news = newsResult.items;
+  const newsLines = news
+    .slice(0, 5)
+    .map((item) => `- [${item.title}](${item.link}) (${item.source})`)
+    .join('\n');
 
   try {
     const result = await generateText({
@@ -384,7 +391,7 @@ export async function GET(request: Request) {
 - USD: [kurs] PLN
 
 ## Wiadomosci
-[3-5 najwazniejszych naglowkow, krotko i neutralnie]
+[3-5 najwazniejszych naglowkow jako linki Markdown: - [tytul](url)]
 
 ## Dzisiejszy dzien
 - Dzien tygodnia: [...]
@@ -399,6 +406,8 @@ Pisz po polsku, konkretnie, bez wymyslania danych. Jesli czegos brakuje, napisz 
           date: displayDate,
           holiday,
           news,
+          newsLines,
+          rateLines,
           rates,
           sources: {
             exchangeRates: 'Frankfurter API',

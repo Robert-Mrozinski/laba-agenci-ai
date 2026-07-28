@@ -2390,6 +2390,17 @@ h1 {
   padding-left: 20px;
 }
 
+.briefing-markdown a {
+  color: #0b4f8a;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.briefing-markdown a:hover {
+  color: #0b2b55;
+}
+
 .skeleton-card span {
   height: 18px;
   display: block;

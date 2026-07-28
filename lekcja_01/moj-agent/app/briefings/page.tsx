@@ -37,6 +37,24 @@ function previewText(content: string) {
   return text.length > 150 ? `${text.slice(0, 150)}...` : text;
 }
 
+function renderInlineMarkdown(text: string) {
+  const parts = text.split(/(\[[^\]]+\]\(https?:\/\/[^)]+\))/g);
+
+  return parts.map((part, index) => {
+    const linkMatch = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
+
+    if (!linkMatch) {
+      return <span key={index}>{part.replace(/\*\*/g, '')}</span>;
+    }
+
+    return (
+      <a href={linkMatch[2]} key={index} rel="noreferrer" target="_blank">
+        {linkMatch[1]}
+      </a>
+    );
+  });
+}
+
 function renderMarkdown(content: string) {
   const lines = content.split('\n');
   const nodes: ReactNode[] = [];
@@ -50,7 +68,7 @@ function renderMarkdown(content: string) {
     nodes.push(
       <ul key={`list-${nodes.length}`}>
         {listItems.map((item) => (
-          <li key={item}>{item.replace(/^[-*]\s*/, '')}</li>
+          <li key={item}>{renderInlineMarkdown(item.replace(/^[-*]\s*/, ''))}</li>
         ))}
       </ul>,
     );
@@ -73,16 +91,16 @@ function renderMarkdown(content: string) {
     flushList();
 
     if (trimmed.startsWith('## ')) {
-      nodes.push(<h2 key={index}>{trimmed.replace(/^##\s*/, '')}</h2>);
+      nodes.push(<h2 key={index}>{renderInlineMarkdown(trimmed.replace(/^##\s*/, ''))}</h2>);
       return;
     }
 
     if (trimmed.startsWith('# ')) {
-      nodes.push(<h1 key={index}>{trimmed.replace(/^#\s*/, '')}</h1>);
+      nodes.push(<h1 key={index}>{renderInlineMarkdown(trimmed.replace(/^#\s*/, ''))}</h1>);
       return;
     }
 
-    nodes.push(<p key={index}>{trimmed.replace(/\*\*/g, '')}</p>);
+    nodes.push(<p key={index}>{renderInlineMarkdown(trimmed)}</p>);
   });
 
   flushList();
