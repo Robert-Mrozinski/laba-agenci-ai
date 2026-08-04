@@ -8,6 +8,8 @@ import {
   jsonSchema,
   streamText,
   tool,
+  type StreamTextTransform,
+  type ToolSet,
   type UIMessage,
 } from 'ai';
 import {
@@ -21,6 +23,54 @@ import { formatAiError } from '../errorMessages';
 
 type AiModel = 'flash' | 'pro';
 type ChatMode = 'agent' | 'chat';
+
+const blockedInputMessage =
+  'Ta wiadomość została zablokowana z powodów bezpieczeństwa.';
+const blockedOutputMessage =
+  'Przepraszam, nie mogę udostępnić tych informacji.';
+const maxInputLength = 2000;
+const maxMessagesPerHour = 50;
+const rateLimitWindowMs = 60 * 60 * 1000;
+const userMessageLog = new Map<string, number[]>();
+
+const blockedInputPhrases = [
+  'ignore previous',
+  'system prompt',
+  'ignore instructions',
+  'pokaż instrukcje',
+  'pokaż mi instrukcje',
+  'pokaż mi swoje instrukcje',
+  'pokaz instrukcje',
+  'pokaz mi instrukcje',
+  'pokaz mi swoje instrukcje',
+  'prompt systemowy',
+  'reveal',
+  'ujawnij',
+  'ujawnij prompt',
+  'ujawnij swoje instrukcje',
+  'wyświetl prompt',
+  'wyswietl prompt',
+  'show me your',
+  'swoje instrukcje',
+  'twoje instrukcje',
+  'translate your prompt',
+  'przetłumacz prompt',
+  'przetlumacz prompt',
+];
+
+const blockedOutputPatterns = [
+  /api[_-]?key/i,
+  /supabase[_-]?url/i,
+  /instrukcj(e|i)\s+(to|systemow|deweloper|programist)/i,
+  /moje instrukcje/i,
+  /prompt systemow/i,
+  /system prompt/i,
+  /tryb(u)? operacyjnego/i,
+  /next_public_supabase_(url|anon_key)/i,
+  /google_(api_key|generative_ai_api_key|image_model)/i,
+  /user_profiles/i,
+  /message_logs/i,
+];
 
 const searchGroundingEnabled =
   process.env.ENABLE_SEARCH_GROUNDING === 'true';
@@ -236,6 +286,99 @@ function messageContentText(content: unknown) {
   return '';
 }
 
+function sanitizeInput(text: string) {
+  return text.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200d\ufeff]/g, '');
+}
+
+function validateInput(text: string) {
+  const sanitizedText = sanitizeInput(text);
+  const lowerText = sanitizedText.toLowerCase();
+
+  if (
+    sanitizedText.length > maxInputLength ||
+    blockedInputPhrases.some((phrase) => lowerText.includes(phrase))
+  ) {
+    return { error: blockedInputMessage, sanitizedText };
+  }
+
+  return { error: null, sanitizedText };
+}
+
+function checkRateLimit(userId: string, messageLength: number) {
+  const now = Date.now();
+  const windowStart = now - rateLimitWindowMs;
+  const recentMessages = (userMessageLog.get(userId) ?? []).filter(
+    (timestamp) => timestamp > windowStart,
+  );
+
+  if (recentMessages.length >= maxMessagesPerHour) {
+    const minutesUntilReset = Math.max(
+      1,
+      Math.ceil((recentMessages[0] + rateLimitWindowMs - now) / 60000),
+    );
+
+    userMessageLog.set(userId, recentMessages);
+
+    return {
+      allowed: false as const,
+      message: `Osiągnąłeś limit wiadomości (50/h). Spróbuj za ${minutesUntilReset} minut.`,
+    };
+  }
+
+  recentMessages.push(now);
+  userMessageLog.set(userId, recentMessages);
+
+  return {
+    allowed: true as const,
+    messageLength,
+  };
+}
+
+function containsBlockedOutput(text: string) {
+  return blockedOutputPatterns.some((pattern) => pattern.test(text));
+}
+
+function safeOutputText(text: string) {
+  return containsBlockedOutput(text) ? blockedOutputMessage : text;
+}
+
+function outputSafetyFilter<TOOLS extends ToolSet>(): StreamTextTransform<TOOLS> {
+  return () => {
+    let activeTextId: string | null = null;
+    let bufferedText = '';
+
+    return new TransformStream({
+      transform(chunk, controller) {
+        if (chunk.type === 'text-start') {
+          activeTextId = chunk.id;
+          bufferedText = '';
+          controller.enqueue(chunk);
+          return;
+        }
+
+        if (chunk.type === 'text-delta' && chunk.id === activeTextId) {
+          bufferedText += chunk.text;
+          return;
+        }
+
+        if (chunk.type === 'text-end' && chunk.id === activeTextId) {
+          controller.enqueue({
+            type: 'text-delta',
+            id: chunk.id,
+            text: safeOutputText(bufferedText),
+          });
+          controller.enqueue(chunk);
+          activeTextId = null;
+          bufferedText = '';
+          return;
+        }
+
+        controller.enqueue(chunk);
+      },
+    });
+  };
+}
+
 function addKnowledgeSearchInstruction(text: string) {
   return [
     text,
@@ -277,7 +420,7 @@ function knowledgeSearchResponse(
             : knowledgeNotFoundMessage();
 
         writer.write({ type: 'text-start', id: textId });
-        writer.write({ type: 'text-delta', id: textId, delta: answer });
+        writer.write({ type: 'text-delta', id: textId, delta: safeOutputText(answer) });
         writer.write({ type: 'text-end', id: textId });
       } catch (error) {
         const answer = formatAiError(
@@ -291,10 +434,28 @@ function knowledgeSearchResponse(
           errorText: answer,
         });
         writer.write({ type: 'text-start', id: textId });
-        writer.write({ type: 'text-delta', id: textId, delta: answer });
+        writer.write({ type: 'text-delta', id: textId, delta: safeOutputText(answer) });
         writer.write({ type: 'text-end', id: textId });
       }
 
+      writer.write({ type: 'finish-step' });
+      writer.write({ type: 'finish', finishReason: 'stop' });
+    },
+  });
+
+  return createUIMessageStreamResponse({ stream });
+}
+
+function chatTextResponse(text: string) {
+  const stream = createUIMessageStream<UIMessage>({
+    execute: async ({ writer }) => {
+      const textId = crypto.randomUUID();
+
+      writer.write({ type: 'start' });
+      writer.write({ type: 'start-step' });
+      writer.write({ type: 'text-start', id: textId });
+      writer.write({ type: 'text-delta', id: textId, delta: safeOutputText(text) });
+      writer.write({ type: 'text-end', id: textId });
       writer.write({ type: 'finish-step' });
       writer.write({ type: 'finish', finishReason: 'stop' });
     },
@@ -644,6 +805,30 @@ export async function POST(req: Request) {
   const authenticatedUserId = user.id;
   const authenticatedSupabase = createSupabaseWithToken(accessToken!);
   const userProfile = await loadUserProfile(authenticatedUserId, authenticatedSupabase);
+  const modelMessages = await convertToModelMessages(messages);
+
+  const lastMessage = modelMessages.at(-1);
+  const lastMessageText =
+    lastMessage?.role === 'user' ? messageContentText(lastMessage.content) : '';
+  const inputValidation = validateInput(lastMessageText);
+
+  if (inputValidation.error) {
+    return chatTextResponse(inputValidation.error);
+  }
+
+  const rateLimit = checkRateLimit(
+    authenticatedUserId,
+    inputValidation.sanitizedText.length,
+  );
+
+  if (!rateLimit.allowed) {
+    return chatTextResponse(rateLimit.message);
+  }
+
+  if (lastMessage?.role === 'user') {
+    lastMessage.content = inputValidation.sanitizedText;
+  }
+
   const systemPrompt = [
     selectedMode === 'agent' ? fullPowerAgentPrompt : personaPrompt,
     knowledgeBasePrompt,
@@ -652,16 +837,12 @@ export async function POST(req: Request) {
   ]
     .filter(Boolean)
     .join('\n\n## PERSONALIZACJA\n');
-  const modelMessages = await convertToModelMessages(messages);
-
-  const lastMessage = modelMessages.at(-1);
-  const lastMessageText =
-    lastMessage?.role === 'user' ? messageContentText(lastMessage.content) : '';
-  const forceKnowledgeSearch = shouldSearchKnowledge(lastMessageText);
+  const sanitizedLastMessageText = inputValidation.sanitizedText;
+  const forceKnowledgeSearch = shouldSearchKnowledge(sanitizedLastMessageText);
 
   if (forceKnowledgeSearch && !image) {
     return knowledgeSearchResponse(
-      lastMessageText,
+      sanitizedLastMessageText,
       authenticatedUserId,
       authenticatedSupabase,
     );
@@ -669,8 +850,8 @@ export async function POST(req: Request) {
 
   if (image && lastMessage?.role === 'user') {
     const text = forceKnowledgeSearch
-      ? addKnowledgeSearchInstruction(lastMessageText)
-      : lastMessageText;
+      ? addKnowledgeSearchInstruction(sanitizedLastMessageText)
+      : sanitizedLastMessageText;
 
     modelMessages[modelMessages.length - 1] = {
       role: 'user',
@@ -682,7 +863,7 @@ export async function POST(req: Request) {
   } else if (forceKnowledgeSearch && lastMessage?.role === 'user') {
     modelMessages[modelMessages.length - 1] = {
       role: 'user',
-      content: addKnowledgeSearchInstruction(lastMessageText),
+      content: addKnowledgeSearchInstruction(sanitizedLastMessageText),
     };
   }
 
@@ -1332,6 +1513,7 @@ export async function POST(req: Request) {
       }),
     },
     // maxSteps: 3 (AI SDK v7 equivalent)
+    experimental_transform: outputSafetyFilter(),
     stopWhen: isStepCount(3),
   });
 
