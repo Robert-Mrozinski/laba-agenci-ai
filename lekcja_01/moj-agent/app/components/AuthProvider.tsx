@@ -26,6 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isLoginPage = pathname === '/login';
+  const isPublicHome = pathname === '/';
 
   useEffect(() => {
     let mounted = true;
@@ -69,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (!session && !isLoginPage) {
+    if (!session && !isLoginPage && !isPublicHome) {
       const query = searchParams.toString();
       const redirectTo = query ? `${pathname}?${query}` : pathname;
       router.replace(`/login?redirectTo=${encodeURIComponent(redirectTo)}`);
@@ -79,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (session && isLoginPage) {
       router.replace(searchParams.get('redirectTo') || '/');
     }
-  }, [isLoading, isLoginPage, pathname, router, searchParams, session]);
+  }, [isLoading, isLoginPage, isPublicHome, pathname, router, searchParams, session]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -89,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [isLoading, session],
   );
 
-  if (!isLoginPage && (isLoading || !session)) {
+  if (!isLoginPage && !isPublicHome && (isLoading || !session)) {
     return (
       <AuthContext.Provider value={value}>
         <main className="auth-shell">
@@ -103,4 +104,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function AppFrame({ children }: { children: React.ReactNode }) {
+  const { session } = useAuth();
+
+  return (
+    <div className={session ? 'app-content' : 'app-content public-content'}>
+      {children}
+    </div>
+  );
 }

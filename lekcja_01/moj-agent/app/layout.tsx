@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { AuthProvider } from './components/AuthProvider';
+import { AppFrame, AuthProvider } from './components/AuthProvider';
 import { Navigation } from './components/Navigation';
 import './globals.css';
 
@@ -29,7 +29,7 @@ export default function RootLayout({
         >
           <AuthProvider>
             <Navigation />
-            <div className="app-content">{children}</div>
+            <AppFrame>{children}</AppFrame>
           </AuthProvider>
         </Suspense>
       </body>
