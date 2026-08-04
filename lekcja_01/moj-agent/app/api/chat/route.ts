@@ -30,6 +30,9 @@ const blockedOutputMessage =
   'Przepraszam, nie mogę udostępnić tych informacji.';
 const maxInputLength = 2000;
 const maxMessagesPerHour = 50;
+const dailyTokenLimit = 10000;
+const dailyTokenLimitMessage =
+  'Dzienny limit tokenów (10k) został wyczerpany. Wróć jutro!';
 const rateLimitWindowMs = 60 * 60 * 1000;
 const userMessageLog = new Map<string, number[]>();
 
@@ -123,6 +126,11 @@ type GeminiImageResponse = {
   error?: {
     message?: string;
   };
+};
+
+type TokenUsage = {
+  inputTokens?: number;
+  outputTokens?: number;
 };
 
 const models: Record<AiModel, string> = {
@@ -308,6 +316,78 @@ function messageContentText(content: unknown) {
   return '';
 }
 
+function estimateTokens(text: string) {
+  return Math.max(1, Math.ceil(text.length / 4));
+}
+
+function todayStartIso() {
+  const now = new Date();
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  ).toISOString();
+}
+
+async function dailyTokenUsage(
+  userId: string,
+  supabaseClient?: SupabaseClient | null,
+) {
+  if (!supabaseClient) {
+    return 0;
+  }
+
+  const { data, error } = await supabaseClient
+    .from('api_usage')
+    .select('tokens_input, tokens_output')
+    .eq('user_id', userId)
+    .gte('created_at', todayStartIso());
+
+  if (error) {
+    console.warn('Nie udało się pobrać dziennego zużycia tokenów.', error.message);
+    return 0;
+  }
+
+  return (data ?? []).reduce((sum, row) => {
+    const inputTokens =
+      typeof row.tokens_input === 'number' ? row.tokens_input : 0;
+    const outputTokens =
+      typeof row.tokens_output === 'number' ? row.tokens_output : 0;
+
+    return sum + inputTokens + outputTokens;
+  }, 0);
+}
+
+async function logApiUsage({
+  endpoint,
+  model,
+  supabaseClient,
+  tokensInput,
+  tokensOutput,
+  userId,
+}: {
+  endpoint: string;
+  model: string;
+  supabaseClient?: SupabaseClient | null;
+  tokensInput: number;
+  tokensOutput: number;
+  userId: string;
+}) {
+  if (!supabaseClient) {
+    return;
+  }
+
+  const { error } = await supabaseClient.from('api_usage').insert({
+    endpoint,
+    model,
+    tokens_input: Math.max(0, Math.round(tokensInput)),
+    tokens_output: Math.max(0, Math.round(tokensOutput)),
+    user_id: userId,
+  });
+
+  if (error) {
+    console.warn('Nie udało się zapisać zużycia tokenów.', error.message);
+  }
+}
+
 function sanitizeInput(text: string) {
   return text.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200d\ufeff]/g, '');
 }
@@ -413,6 +493,7 @@ function knowledgeSearchResponse(
   query: string,
   userId?: string,
   supabaseClient?: SupabaseClient | null,
+  model = 'knowledge-search',
 ) {
   const stream = createUIMessageStream<UIMessage>({
     execute: async ({ writer }) => {
@@ -441,15 +522,39 @@ function knowledgeSearchResponse(
           searchResult.total_found > 0
             ? answerFromKnowledge(searchResult.results)
             : knowledgeNotFoundMessage();
+        const safeAnswer = safeOutputText(answer);
+
+        if (userId) {
+          await logApiUsage({
+            endpoint: '/api/chat',
+            model,
+            supabaseClient,
+            tokensInput: estimateTokens(query),
+            tokensOutput: estimateTokens(safeAnswer),
+            userId,
+          });
+        }
 
         writer.write({ type: 'text-start', id: textId });
-        writer.write({ type: 'text-delta', id: textId, delta: safeOutputText(answer) });
+        writer.write({ type: 'text-delta', id: textId, delta: safeAnswer });
         writer.write({ type: 'text-end', id: textId });
       } catch (error) {
         const answer = formatAiError(
           error,
           'Nie udało się przeszukać bazy wiedzy.',
         );
+        const safeAnswer = safeOutputText(answer);
+
+        if (userId) {
+          await logApiUsage({
+            endpoint: '/api/chat',
+            model,
+            supabaseClient,
+            tokensInput: estimateTokens(query),
+            tokensOutput: estimateTokens(safeAnswer),
+            userId,
+          });
+        }
 
         writer.write({
           type: 'tool-output-error',
@@ -457,7 +562,7 @@ function knowledgeSearchResponse(
           errorText: answer,
         });
         writer.write({ type: 'text-start', id: textId });
-        writer.write({ type: 'text-delta', id: textId, delta: safeOutputText(answer) });
+        writer.write({ type: 'text-delta', id: textId, delta: safeAnswer });
         writer.write({ type: 'text-end', id: textId });
       }
 
@@ -829,6 +934,7 @@ export async function POST(req: Request) {
   const authenticatedSupabase = createSupabaseWithToken(accessToken!);
   const userProfile = await loadUserProfile(authenticatedUserId, authenticatedSupabase);
   const modelMessages = await convertToModelMessages(messages);
+  const selectedModelName = models[selectedModel];
 
   const lastMessage = modelMessages.at(-1);
   const lastMessageText =
@@ -846,6 +952,15 @@ export async function POST(req: Request) {
 
   if (!rateLimit.allowed) {
     return chatTextResponse(rateLimit.message);
+  }
+
+  const tokensUsedToday = await dailyTokenUsage(
+    authenticatedUserId,
+    authenticatedSupabase,
+  );
+
+  if (tokensUsedToday >= dailyTokenLimit) {
+    return chatTextResponse(dailyTokenLimitMessage);
   }
 
   if (lastMessage?.role === 'user') {
@@ -869,6 +984,7 @@ export async function POST(req: Request) {
       sanitizedLastMessageText,
       authenticatedUserId,
       authenticatedSupabase,
+      'knowledge-search',
     );
   }
 
@@ -925,7 +1041,7 @@ export async function POST(req: Request) {
   };
 
   const result = streamText({
-    model: google(models[selectedModel]),
+    model: google(selectedModelName),
     system: systemPrompt,
     messages: modelMessages,
     tools: {
@@ -1538,6 +1654,16 @@ export async function POST(req: Request) {
     },
     // maxSteps: 3 (AI SDK v7 equivalent)
     experimental_transform: outputSafetyFilter(),
+    onEnd: async ({ usage }: { usage: TokenUsage }) => {
+      await logApiUsage({
+        endpoint: '/api/chat',
+        model: selectedModelName,
+        supabaseClient: authenticatedSupabase,
+        tokensInput: usage.inputTokens ?? estimateTokens(sanitizedLastMessageText),
+        tokensOutput: usage.outputTokens ?? 0,
+        userId: authenticatedUserId,
+      });
+    },
     stopWhen: isStepCount(3),
   });
 
