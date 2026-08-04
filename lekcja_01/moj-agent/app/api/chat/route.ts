@@ -30,7 +30,7 @@ const blockedOutputMessage =
   'Przepraszam, nie mogę udostępnić tych informacji.';
 const maxInputLength = 2000;
 const maxMessagesPerHour = 50;
-const dailyTokenLimit = 10000;
+const dailyTokenLimit = Number(process.env.DAILY_TOKEN_LIMIT ?? 10000);
 const dailyTokenLimitMessage =
   'Dzienny limit tokenów (10k) został wyczerpany. Wróć jutro!';
 const rateLimitWindowMs = 60 * 60 * 1000;
