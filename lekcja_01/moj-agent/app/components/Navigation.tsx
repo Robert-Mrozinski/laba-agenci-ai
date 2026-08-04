@@ -23,6 +23,7 @@ const navItems = [
   { href: '/extract', icon: '📊', label: 'Analizator' },
   { href: '/fewshot', icon: '📚', label: 'Słownik' },
   { href: '/format', icon: '📐', label: 'Formater' },
+  { href: '/admin/security', icon: '🛡️', label: 'Bezpieczeństwo' },
 ];
 
 export function Navigation() {

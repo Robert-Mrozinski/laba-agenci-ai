@@ -388,6 +388,36 @@ async function logApiUsage({
   }
 }
 
+async function logSuspiciousMessage({
+  endpoint,
+  message,
+  reason,
+  supabaseClient,
+  userId,
+}: {
+  endpoint: string;
+  message: string;
+  reason: string;
+  supabaseClient?: SupabaseClient | null;
+  userId: string;
+}) {
+  if (!supabaseClient) {
+    return;
+  }
+
+  const { error } = await supabaseClient.from('message_logs').insert({
+    blocked: true,
+    endpoint,
+    message: message.slice(0, 2000),
+    reason,
+    user_id: userId,
+  });
+
+  if (error) {
+    console.warn('Nie udało się zapisać podejrzanej wiadomości.', error.message);
+  }
+}
+
 function sanitizeInput(text: string) {
   return text.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200d\ufeff]/g, '');
 }
@@ -396,15 +426,39 @@ function validateInput(text: string) {
   const sanitizedText = sanitizeInput(text);
   const lowerText = sanitizedText.toLowerCase();
 
-  if (
-    sanitizedText.length > maxInputLength ||
-    blockedInputPhrases.some((phrase) => lowerText.includes(phrase)) ||
-    blockedInputPatterns.some((pattern) => pattern.test(sanitizedText))
-  ) {
-    return { error: blockedInputMessage, sanitizedText };
+  if (sanitizedText.length > maxInputLength) {
+    return {
+      error: blockedInputMessage,
+      reason: `Wiadomość przekracza ${maxInputLength} znaków.`,
+      sanitizedText,
+    };
   }
 
-  return { error: null, sanitizedText };
+  const blockedPhrase = blockedInputPhrases.find((phrase) =>
+    lowerText.includes(phrase),
+  );
+
+  if (blockedPhrase) {
+    return {
+      error: blockedInputMessage,
+      reason: `Podejrzana fraza: ${blockedPhrase}`,
+      sanitizedText,
+    };
+  }
+
+  const blockedPattern = blockedInputPatterns.find((pattern) =>
+    pattern.test(sanitizedText),
+  );
+
+  if (blockedPattern) {
+    return {
+      error: blockedInputMessage,
+      reason: 'Podejrzana prośba o ujawnienie instrukcji lub zasad agenta.',
+      sanitizedText,
+    };
+  }
+
+  return { error: null, reason: null, sanitizedText };
 }
 
 function checkRateLimit(userId: string, messageLength: number) {
@@ -942,6 +996,14 @@ export async function POST(req: Request) {
   const inputValidation = validateInput(lastMessageText);
 
   if (inputValidation.error) {
+    await logSuspiciousMessage({
+      endpoint: '/api/chat',
+      message: lastMessageText,
+      reason: inputValidation.reason ?? 'Wiadomość zablokowana przez walidację.',
+      supabaseClient: authenticatedSupabase,
+      userId: authenticatedUserId,
+    });
+
     return chatTextResponse(inputValidation.error);
   }
 
